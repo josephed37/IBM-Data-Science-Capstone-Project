@@ -1,0 +1,151 @@
+<html>
+<head>
+<title>02_space_x_webscraping.ipynb</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #616161; font-style: italic;}
+.s1 { color: #eeffff;}
+.s2 { color: #c792ea; font-style: italic;}
+.s3 { color: #89ddff;}
+.s4 { color: #f78c6c;}
+.s5 { color: #c3e88d;}
+</style>
+</head>
+<body bgcolor="#212121">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+02_space_x_webscraping.ipynb</font>
+</center></td></tr></table>
+<pre><span class="s0">#%% md 
+</span><span class="s1">&lt;p style=&quot;text-align:center&quot;&gt; 
+    &lt;a href=&quot;https://skills.network&quot; target=&quot;_blank&quot;&gt; 
+    &lt;img src=&quot;https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/assets/logos/SN_web_lightmode.png&quot; width=&quot;200&quot; alt=&quot;Skills Network Logo&quot;&gt; 
+    &lt;/a&gt; 
+&lt;/p&gt; 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1"># **SpaceX  Falcon 9 First Stage Landing Prediction** 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">## Web scraping Falcon 9 and Falcon Heavy Launches Records from Wikipedia 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">Estimated time needed: **40** minutes 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">In this lab, you will be performing web scraping to collect Falcon 9 historical launch records from a Wikipedia page titled `List of Falcon 9 and Falcon Heavy launches` 
+ 
+https://en.wikipedia.org/wiki/List_of_Falcon_9_and_Falcon_Heavy_launches 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">![](https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBM-DS0321EN-SkillsNetwork/labs/module_1_L2/images/Falcon9_rocket_family.svg) 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">Falcon 9 first stage will land successfully 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">![](https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-DS0701EN-SkillsNetwork/api/Images/landing_1.gif) 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">Several examples of an unsuccessful landing are shown here: 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">![](https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-DS0701EN-SkillsNetwork/api/Images/crash.gif) 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">More specifically, the launch records are stored in a HTML table shown below: 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">![](https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBM-DS0321EN-SkillsNetwork/labs/module_1_L2/images/falcon9-launches-wiki.png) 
+ 
+</span><span class="s0">#%% md 
+  </span><span class="s1">## Objectives 
+Web scrap Falcon 9 launch records with `BeautifulSoup`:  
+- Extract a Falcon 9 launch records HTML table from Wikipedia 
+- Parse the table and convert it into a Pandas data frame 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">First let's import required packages for this lab 
+ 
+</span><span class="s0">#%% 
+</span><span class="s2">import </span><span class="s1">sys</span>
+
+<span class="s2">import </span><span class="s1">requests</span>
+<span class="s2">from </span><span class="s1">bs4 </span><span class="s2">import </span><span class="s1">BeautifulSoup</span>
+<span class="s2">import </span><span class="s1">re</span>
+<span class="s2">import </span><span class="s1">unicodedata</span>
+<span class="s2">import </span><span class="s1">pandas </span><span class="s2">as </span><span class="s1">pd</span>
+<span class="s0">#%% md 
+</span><span class="s1">and we will provide some helper functions for you to process web scraped HTML table 
+ 
+</span><span class="s0">#%% 
+</span><span class="s2">def </span><span class="s1">date_time</span><span class="s3">(</span><span class="s1">table_cells</span><span class="s3">):</span>
+    <span class="s0">&quot;&quot;&quot; 
+    This function returns the data and time from the HTML  table cell 
+    Input: the  element of a table data cell extracts extra row 
+    &quot;&quot;&quot;</span>
+    <span class="s2">return </span><span class="s3">[</span><span class="s1">data_time</span><span class="s3">.</span><span class="s1">strip</span><span class="s3">() </span><span class="s2">for </span><span class="s1">data_time </span><span class="s2">in </span><span class="s1">list</span><span class="s3">(</span><span class="s1">table_cells</span><span class="s3">.</span><span class="s1">strings</span><span class="s3">)][</span><span class="s4">0</span><span class="s3">:</span><span class="s4">2</span><span class="s3">]</span>
+
+<span class="s2">def </span><span class="s1">booster_version</span><span class="s3">(</span><span class="s1">table_cells</span><span class="s3">):</span>
+    <span class="s0">&quot;&quot;&quot; 
+    This function returns the booster version from the HTML  table cell  
+    Input: the  element of a table data cell extracts extra row 
+    &quot;&quot;&quot;</span>
+    <span class="s1">out</span><span class="s3">=</span><span class="s5">''</span><span class="s3">.</span><span class="s1">join</span><span class="s3">([</span><span class="s1">booster_version </span><span class="s2">for </span><span class="s1">i</span><span class="s3">,</span><span class="s1">booster_version </span><span class="s2">in </span><span class="s1">enumerate</span><span class="s3">( </span><span class="s1">table_cells</span><span class="s3">.</span><span class="s1">strings</span><span class="s3">) </span><span class="s2">if </span><span class="s1">i</span><span class="s3">%</span><span class="s4">2</span><span class="s3">==</span><span class="s4">0</span><span class="s3">][</span><span class="s4">0</span><span class="s3">:-</span><span class="s4">1</span><span class="s3">])</span>
+    <span class="s2">return </span><span class="s1">out</span>
+
+<span class="s2">def </span><span class="s1">landing_status</span><span class="s3">(</span><span class="s1">table_cells</span><span class="s3">):</span>
+    <span class="s0">&quot;&quot;&quot; 
+    This function returns the landing status from the HTML table cell  
+    Input: the  element of a table data cell extracts extra row 
+    &quot;&quot;&quot;</span>
+    <span class="s1">out</span><span class="s3">=[</span><span class="s1">i </span><span class="s2">for </span><span class="s1">i </span><span class="s2">in </span><span class="s1">table_cells</span><span class="s3">.</span><span class="s1">strings</span><span class="s3">][</span><span class="s4">0</span><span class="s3">]</span>
+    <span class="s2">return </span><span class="s1">out</span>
+
+
+<span class="s2">def </span><span class="s1">get_mass</span><span class="s3">(</span><span class="s1">table_cells</span><span class="s3">):</span>
+    <span class="s1">mass</span><span class="s3">=</span><span class="s1">unicodedata</span><span class="s3">.</span><span class="s1">normalize</span><span class="s3">(</span><span class="s5">&quot;NFKD&quot;</span><span class="s3">, </span><span class="s1">table_cells</span><span class="s3">.</span><span class="s1">text</span><span class="s3">).</span><span class="s1">strip</span><span class="s3">()</span>
+    <span class="s2">if </span><span class="s1">mass</span><span class="s3">:</span>
+        <span class="s1">mass</span><span class="s3">.</span><span class="s1">find</span><span class="s3">(</span><span class="s5">&quot;kg&quot;</span><span class="s3">)</span>
+        <span class="s1">new_mass</span><span class="s3">=</span><span class="s1">mass</span><span class="s3">[</span><span class="s4">0</span><span class="s3">:</span><span class="s1">mass</span><span class="s3">.</span><span class="s1">find</span><span class="s3">(</span><span class="s5">&quot;kg&quot;</span><span class="s3">)+</span><span class="s4">2</span><span class="s3">]</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s1">new_mass</span><span class="s3">=</span><span class="s4">0</span>
+    <span class="s2">return </span><span class="s1">new_mass</span>
+
+
+<span class="s2">def </span><span class="s1">extract_column_from_header</span><span class="s3">(</span><span class="s1">row</span><span class="s3">):</span>
+    <span class="s0">&quot;&quot;&quot; 
+    This function returns the landing status from the HTML table cell  
+    Input: the  element of a table data cell extracts extra row 
+    &quot;&quot;&quot;</span>
+    <span class="s2">if </span><span class="s3">(</span><span class="s1">row</span><span class="s3">.</span><span class="s1">br</span><span class="s3">):</span>
+        <span class="s1">row</span><span class="s3">.</span><span class="s1">br</span><span class="s3">.</span><span class="s1">extract</span><span class="s3">()</span>
+    <span class="s2">if </span><span class="s1">row</span><span class="s3">.</span><span class="s1">a</span><span class="s3">:</span>
+        <span class="s1">row</span><span class="s3">.</span><span class="s1">a</span><span class="s3">.</span><span class="s1">extract</span><span class="s3">()</span>
+    <span class="s2">if </span><span class="s1">row</span><span class="s3">.</span><span class="s1">sup</span><span class="s3">:</span>
+        <span class="s1">row</span><span class="s3">.</span><span class="s1">sup</span><span class="s3">.</span><span class="s1">extract</span><span class="s3">()</span>
+        
+    <span class="s1">colunm_name </span><span class="s3">= </span><span class="s5">' '</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">row</span><span class="s3">.</span><span class="s1">contents</span><span class="s3">)</span>
+    
+    <span class="s0"># Filter the digit and empty names</span>
+    <span class="s2">if not</span><span class="s3">(</span><span class="s1">colunm_name</span><span class="s3">.</span><span class="s1">strip</span><span class="s3">().</span><span class="s1">isdigit</span><span class="s3">()):</span>
+        <span class="s1">colunm_name </span><span class="s3">= </span><span class="s1">colunm_name</span><span class="s3">.</span><span class="s1">strip</span><span class="s3">()</span>
+        <span class="s2">return </span><span class="s1">colunm_name    </span>
+
+<span class="s0">#%% md 
+</span><span class="s1">To keep the lab tasks consistent, you will be asked to scrape the data from a snapshot of the  `List of Falcon 9 and Falcon Heavy launches` Wikipage updated on 
+`9th June 2021` 
+ 
+</span><span class="s0">#%% 
+</span><span class="s1">static_url </span><span class="s3">= </span><span class="s5">&quot;https://en.wikipedia.org/w/index.php?title=List_of_Falcon_9_and_Falcon_Heavy_launches&amp;oldid=1027686922&quot;</span>
+<span class="s0">#%% md 
+</span><span class="s1">Next, request the HTML page from the above URL and get a `response` object 
+ 
+</span><span class="s0">#%% md 
+</span><span class="s1">### TASK 1: Request the Falcon9 Launch Wiki page from its URL 
+ 
+</span><span class="s0">#%% 
+</span></pre>
+</body>
+</html>
